@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask import request, abort
 from nextcloud_talk_bot_kosci.request_data import RequestData
 from nextcloud_talk_bot_kosci.helper import send_message
+from nextcloud_talk_bot_kosci.command import Command
 import hmac
 import hashlib
 import functools
@@ -48,6 +49,18 @@ def init_server(nextcloud_url, bot_secret, callback):
 
         def send_response(self, message, channel_id, message_id=None):
             send_message(nextcloud_url, bot_secret, message, channel_id, message_id)
+
+        def post(self, message):
+            self.send_response(message, self.data['target']['id'])
+
+        def reply(self, message):
+            self.send_response(message, self.data['target']['id'], self.data['object']['id'])
+
+        def parse_command(self, patters):
+            cmd = Command(patters)
+            cmd.parse(self.data.message)
+
+            return cmd
 
     @app.route('/webhook', methods=['POST'])
     @verify_signature(bot_secret)
