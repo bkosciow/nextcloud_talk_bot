@@ -1,3 +1,5 @@
+from typing import List, Dict, Any
+
 
 class Command:
     def __init__(self, patterns=None, command_with_text=False):
@@ -53,7 +55,7 @@ class Command:
     def param(self, name):
         return self.params[name] if name in self.params else None
 
-    def __getattr__(self, name):
+    def __getattr__(self, name, default=None):
         if name in self.params:
             return self.params[name]
 
@@ -63,7 +65,8 @@ class Command:
         if name == 'params':
             return self.params
 
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        return default
+
 
 if __name__ == '__main__':
     p = [

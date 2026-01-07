@@ -34,3 +34,4 @@ def send_message(url, secret, message, channel_id, message_id=None):
 
     response = requests.post(url, data=request_body, headers=headers)
     response.raise_for_status()
+    print(response.content)

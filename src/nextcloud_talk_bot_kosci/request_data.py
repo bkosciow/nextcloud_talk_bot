@@ -1,4 +1,5 @@
 import json
+from typing import Dict, Any
 
 
 class RequestData:
@@ -17,7 +18,7 @@ class RequestData:
         if item == 'message':
             return json.loads(self.raw['object']['content'])['message']
 
-        return self.raw[item]
+        return self.raw[item] if item in self.raw else None
 
     def __repr__(self):
         return self.raw
