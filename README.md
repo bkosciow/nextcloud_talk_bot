@@ -80,24 +80,30 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+patterns = [
+    '!time',
+    '!sl <action>', 
+    '!sl <action> <module>',
+    '!air',
+    '!weather',
+    '!home',
+    '!home <room>'
+    '!rem <prompt>'
+]
 
-def action(request):
-    if request.data.message.startswith('!time'):
-        request.send_response(
-            "Executing...",
-            request.data['target']['id'],
-            request.data['object']['id']
-        )
-        time.sleep(10)
-        request.send_response(
-            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            request.data['target']['id']
-        )
+async def action(request):
+    cmd = request.parse_command(patterns)
+    print(cmd.result, cmd.command)
+    if cmd.result:
+        if cmd.command == "!time":
+            request.reply(" Executing...")
+            time.sleep(10)
+            request.post(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
 
 init_server(
-    os.environ.get('NEXTCLOUD_URL'),
-    os.environ.get('BOT_SECRET'),
+    config.get("ncbot.nc_url"),
+    config.get('ncbot.secret'),
     action
 )
 
@@ -107,4 +113,5 @@ if __name__ == "__main__":
     uvicorn.run(
         "__main__:app", reload=True, host="0.0.0.0", port=int(os.environ.get('WEBHOOK_PORT', 8000)),
     )
+
 ```

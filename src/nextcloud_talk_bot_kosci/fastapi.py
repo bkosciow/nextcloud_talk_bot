@@ -1,78 +1,68 @@
 from fastapi import FastAPI, Request, HTTPException, status
+from fastapi.responses import JSONResponse
 from nextcloud_talk_bot_kosci.request_data import RequestData
 from nextcloud_talk_bot_kosci.helper import send_message
+from nextcloud_talk_bot_kosci.command import Command
+from fastapi import BackgroundTasks
 import hmac
 import hashlib
-import threading
-from typing import Callable
+import functools
 
 app = FastAPI()
 
-nextcloud_url = ""
-bot_secret = ""
-callback_func: Callable = None
+
+def verify_signature(secret):
+    """Decorator to verify Nextcloud webhook signature with custom secret"""
+    def decorator(f):
+        @functools.wraps(f)
+        async def decorated_function(*args, **kwargs):
+            request: Request = kwargs.get('request')
+            signature = request.headers.get('X-Nextcloud-Talk-Signature', '')
+            random_header = request.headers.get('X-Nextcloud-Talk-Random', '')
+            if not signature:
+                raise HTTPException(status_code=401, detail="Missing signature")
+            data = await request.body()
+            data_str = data.decode('utf-8')
+            signature_data = random_header + data_str
+            expected_sig = hmac.new(
+                secret.encode('utf-8'),
+                signature_data.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(signature, expected_sig):
+                raise HTTPException(status_code=401, detail="Invalid signature")
+            return await f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 
-def verify_signature(secret: str):
-    """Dependency to verify Nextcloud webhook signature with custom secret"""
-    async def verify(request: Request):
-        signature = request.headers.get('X-Nextcloud-Talk-Signature', '')
-        random_header = request.headers.get('X-Nextcloud-Talk-Random', '')
-        if not signature:
-            raise HTTPException(status_code=401, detail="Missing signature")
+def init_server(nextcloud_url, bot_secret, callback):
+    class RequestWrapper:
+        def __init__(self, data):
+            self.data = data
 
-        body = await request.body()
-        data = body.decode('utf-8')
-        signature_data = random_header + data
+        def send_response(self, message, channel_id, message_id=None):
+            send_message(nextcloud_url, bot_secret, message, channel_id, message_id)
 
-        expected_sig = hmac.new(
-            secret.encode('utf-8'),
-            signature_data.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
+        def post(self, message):
+            self.send_response(message, self.data['target']['id'])
 
-        if not hmac.compare_digest(signature, expected_sig):
-            raise HTTPException(status_code=401, detail="Invalid signature")
+        def reply(self, message):
+            self.send_response(message, self.data['target']['id'], self.data['object']['id'])
 
-    return verify
-
-
-class RequestWrapper:
-    def __init__(self, data):
-        self.data = data
-
-    def send_response(self, message: str, channel_id: str, message_id: str = None):
-        send_message(nextcloud_url, bot_secret, message, channel_id, message_id)
-
-
-def init_server(nextcloud_url_param: str, bot_secret_param: str, callback: Callable):
-    global nextcloud_url, bot_secret, callback_func
-    nextcloud_url = nextcloud_url_param
-    bot_secret = bot_secret_param
-    callback_func = callback
+        def parse_command(self, patterns):
+            cmd = Command(patterns)
+            cmd.parse(self.data.message)
+            return cmd
 
     @app.post("/webhook")
-    async def webhook(request: Request, verify=verify_signature(bot_secret)):
-        await verify(request)
-        body = await request.body()
-        json_data = await request.json()
+    @verify_signature(bot_secret)
+    async def webhook(request: Request, background_tasks: BackgroundTasks):
+        data = await request.json()
+        background_tasks.add_task(callback, RequestWrapper(RequestData(data)))
 
-        request_data = RequestData(json_data)
-
-        wrapped_request = RequestWrapper(request_data)
-
-        # Process in background thread
-        def process_callback():
-            callback_func(wrapped_request)
-
-        # Run in background thread
-        thread = threading.Thread(target=process_callback)
-        thread.daemon = True
-        thread.start()
-
-        return {"success": True}
+        return JSONResponse({"success": True})
 
     @app.get("/health")
     async def health():
-        """Health check endpoint"""
-        return {"status": "healthy"}
+        return JSONResponse({"status": "healthy"})
