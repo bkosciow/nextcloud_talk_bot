@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import JSONResponse
 from nextcloud_talk_bot_kosci.request_data import RequestData
-from nextcloud_talk_bot_kosci.helper import send_message
+from nextcloud_talk_bot_kosci.helper import send_message, add_reaction
 from nextcloud_talk_bot_kosci.command import Command
 from fastapi import BackgroundTasks
 import hmac
@@ -49,6 +49,9 @@ def init_server(nextcloud_url, bot_secret, callback):
 
         def reply(self, message):
             self.send_response(message, self.data['target']['id'], self.data['object']['id'])
+
+        def react(self, emoji):
+            add_reaction(nextcloud_url, bot_secret, emoji, self.data['target']['id'], self.data['object']['id'])
 
         def parse_command(self, patterns):
             cmd = Command(patterns)

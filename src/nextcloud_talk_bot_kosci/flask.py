@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask import request, abort
 from nextcloud_talk_bot_kosci.request_data import RequestData
-from nextcloud_talk_bot_kosci.helper import send_message
+from nextcloud_talk_bot_kosci.helper import send_message, add_reaction
 from nextcloud_talk_bot_kosci.command import Command
 import hmac
 import hashlib
@@ -55,6 +55,9 @@ def init_server(nextcloud_url, bot_secret, callback):
 
         def reply(self, message):
             self.send_response(message, self.data['target']['id'], self.data['object']['id'])
+
+        def react(self, emoji):
+            add_reaction(nextcloud_url, bot_secret, emoji, self.data['target']['id'], self.data['object']['id'])
 
         def parse_command(self, patters):
             cmd = Command(patters)
