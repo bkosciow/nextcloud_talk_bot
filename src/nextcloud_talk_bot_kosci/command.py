@@ -8,6 +8,13 @@ class Command:
         self.params: Dict[str, Any] = {}
         self.result: bool = False
 
+    def system_command(self, obj):
+        self.command = "event." + obj.type
+        self.params = obj
+        self.result = True
+
+        return self.result
+
     def parse(self, text: str) -> bool:
         text = text.strip()
         self.result = False

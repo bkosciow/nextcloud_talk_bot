@@ -2,6 +2,7 @@ from typing import Dict, Any
 
 import json
 
+
 class RequestData:
     def __init__(self, raw: Dict[str, Any]):
         self.raw: Dict[str, Any] = raw

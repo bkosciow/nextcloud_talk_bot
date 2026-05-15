@@ -55,7 +55,11 @@ def init_server(nextcloud_url, bot_secret, callback):
 
         def parse_command(self, patterns):
             cmd = Command(patterns)
-            cmd.parse(self.data.message)
+            if self.data.type in ["Join", "Leave"]:
+                cmd.system_command(self.data)
+            else:
+                cmd.parse(self.data.message)
+
             return cmd
 
     @app.post("/webhook")
